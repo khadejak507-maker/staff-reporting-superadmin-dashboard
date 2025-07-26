@@ -64,7 +64,7 @@ const Sidebar = ({ closeDrawer }) => {
     {
       icon: <GrNotes className="h-5 w-5" />,
       label: "Daily Report",
-      Link: "/daily-report",
+      Link: "/",
     },
     // {
     //   icon: <FiUserPlus className="h-5 w-5" />,
