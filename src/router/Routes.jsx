@@ -57,67 +57,67 @@ export const router = createBrowserRouter([
       {
         path: "/",
         // element: <Analytics />,
-        element: <CalenderComponent />,
-      },
-      {
-        path: "/staff-details",
-        element: <StaffDetails />,
-      },
-      {
-        path: "/add-client",
-        element: <AddClients />,
-      },
-      {
-        path: "expenses",
-        element: <Expences />,
-      },
-      {
-        path: "daily-report",
         element: <Reports />,
       },
-      {
-        path: "create-staff",
-        element: <CreateStaff />,
-      },
-      {
-        path: "office-time",
-        element: <OfficeTimeAndNotice />,
-      },
-      {
-        path: "/notification",
-        element: <Notifications />,
-      },
+      // {
+      //   path: "/staff-details",
+      //   element: <StaffDetails />,
+      // },
+      // {
+      //   path: "/add-client",
+      //   element: <AddClients />,
+      // },
+      // {
+      //   path: "expenses",
+      //   element: <Expences />,
+      // },
+      // {
+      //   path: "daily-report",
+      //   element: <Reports />,
+      // },
+      // {
+      //   path: "create-staff",
+      //   element: <CreateStaff />,
+      // },
+      // {
+      //   path: "office-time",
+      //   element: <OfficeTimeAndNotice />,
+      // },
+      // {
+      //   path: "/notification",
+      //   element: <Notifications />,
+      // },
 
       // setting:
-      {
-        path: "/settings/about-us",
-        element: <AboutUs />,
-      },
+      // {
+      //   path: "/settings/about-us",
+      //   element: <AboutUs />,
+      // },
       // {
       //   path: "/settings/contact-us",
       //   element: <ContactUs />,
       // },
 
-      {
-        path: "/settings/privacy-policy",
-        element: <PrivacyPolicy />,
-      },
-      {
-        path: "/settings/terms-condition",
-        element: <TermsCondition />,
-      },
-      {
-        path: "/settings/add-logo-and-color",
-        element: <AddLogoAndColor />,
-      },
-      {
-        path: "/staff-details/notes/:id",
-        element: <Notes />,
-      },
-      {
-        path: "/add-client/notes/:id",
-        element: <ClientNotes />,
-      },
+      // {
+      //   path: "/settings/privacy-policy",
+      //   element: <PrivacyPolicy />,
+      // },
+      // {
+      //   path: "/settings/terms-condition",
+      //   element: <TermsCondition />,
+      // },
+      // {
+      //   path: "/settings/add-logo-and-color",
+      //   element: <AddLogoAndColor />,
+      // },
+      // {
+      //   path: "/staff-details/notes/:id",
+      //   element: <Notes />,
+      // },
+      // {
+      //   path: "/add-client/notes/:id",
+      //   element: <ClientNotes />,
+      // },
 
       // Admin profile:
       {

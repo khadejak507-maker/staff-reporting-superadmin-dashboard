@@ -13,11 +13,7 @@ const Daily = () => {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: dailyData } = useGetDailyReportsQuery({
-    page: currentPage,
-    limit: pageSize,
-    search: searchTerm,
-  });
+  const { data: dailyData } = useGetDailyReportsQuery();
   const userData = dailyData?.data;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -187,22 +183,20 @@ const Daily = () => {
     }
   };
 
-
-    const [primaryColor, setPrimaryColor] = useState("#d51920");
-   useEffect(() => {
-      const rootStyles = getComputedStyle(document.documentElement);
-      const cssPrimaryColor = rootStyles
-        .getPropertyValue("--color-primary")
-        .trim();
-      setPrimaryColor(cssPrimaryColor || "#3b19d5"); // fallback to default
-
-    }, []);
+  const [primaryColor, setPrimaryColor] = useState("#d51920");
+  useEffect(() => {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const cssPrimaryColor = rootStyles
+      .getPropertyValue("--color-primary")
+      .trim();
+    setPrimaryColor(cssPrimaryColor || "#3b19d5"); // fallback to default
+  }, []);
   return (
     <div className="">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-10"></div>
       <div className=" overflow-x-auto">
         <ConfigProvider
-      theme={{
+          theme={{
             token: {
               colorPrimary: primaryColor,
             },
