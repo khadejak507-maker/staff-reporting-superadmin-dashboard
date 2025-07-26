@@ -1,12 +1,13 @@
 /* eslint-disable no-unused-vars */
 // hooks/useSetPrimaryColorFromToken.js
 import { useEffect } from "react";
-import { useGetLogoAndColorQuery } from "../../redux/Feature/seetingsApi/seetingsApi";
+// import { useGetLogoAndColorQuery } from "../../redux/Feature/seetingsApi/seetingsApi";
 
 const useSetPrimaryColorFromToken = () => {
-  const { data: companyColor, refetch } = useGetLogoAndColorQuery();
-  console.log("companyColor", companyColor);
-  const colorfromCompany = companyColor?.data?.color;
+  // const { data: companyColor, refetch } = useGetLogoAndColorQuery();
+  // console.log("companyColor", companyColor);
+  const companyColor="#d51920"
+  const colorfromCompany = companyColor;
   console.log(colorfromCompany);
   useEffect(() => {
     const token = localStorage.getItem("token");
