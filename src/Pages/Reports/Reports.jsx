@@ -1,16 +1,15 @@
-import { ConfigProvider, Input } from "antd";
+// import { ConfigProvider, Input } from "antd";
 import { useState } from "react";
-import { SearchOutlined } from "@ant-design/icons";
+// import { SearchOutlined } from "@ant-design/icons";
 import Daily from "./Daily";
 import Weekly from "./Weekly";
 
 const Reports = () => {
-  const [email, setEmail] = useState("");
+  // const [email, setEmail] = useState("");
   const [active, setActive] = useState(true);
 
-  const handleSearch = () => {
-    // Handle search logic here
-  };
+  // const handleSearch = () => {
+  // };
 
   return (
     <div>
@@ -34,7 +33,7 @@ const Reports = () => {
           </button>
         </div>
 
-        <div>
+        {/* <div>
           <ConfigProvider
             theme={{
               components: {
@@ -70,7 +69,8 @@ const Reports = () => {
               </button>
             </div>
           </ConfigProvider>
-        </div>
+        </div> */}
+
       </div>
       <div className="mt-5 ">{active ? <Daily /> : <Weekly />}</div>
     </div>
