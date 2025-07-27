@@ -52,7 +52,6 @@ const Daily = () => {
       key: "workDescription",
       render: (_, record) => (
         <div className="flex items-center gap-2">
-       
           <span>{record?.workDescription || "N/A"}</span>
         </div>
       ),
@@ -79,25 +78,25 @@ const Daily = () => {
       title: "Issue Or Delays",
       dataIndex: "issueOrDelays",
       key: "issueOrDelays",
-     render: (_, record) => record?.issueOrDelays || "N/A",
+      render: (_, record) => record?.issueOrDelays || "N/A",
     },
     {
       title: "Mileage Logged",
       dataIndex: "mileageLogged",
       key: "mileageLogged",
-        render: (_, record) => record?.mileageLogged || "N/A",
+      render: (_, record) => record?.mileageLogged || "N/A",
     },
     {
       title: "Any Wasted Material",
       dataIndex: "anyWastedMaterial",
       key: "anyWastedMaterial",
-        render: (_, record) => record?.anyWastedMaterial || "N/A",
+      render: (_, record) => record?.anyWastedMaterial || "N/A",
     },
     {
       title: "Expenses Incurred",
       dataIndex: "expensesIncurred",
       key: "expensesIncurred",
-        render: (_, record) => record?.expensesIncurred || "N/A",
+      render: (_, record) => record?.expensesIncurred || "N/A",
     },
     {
       title: "Total Hours",
@@ -208,7 +207,7 @@ const Daily = () => {
   return (
     <div className="">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-10"></div>
-      <div className=" overflow-x-auto">
+      <div ref={printRef} className=" overflow-x-auto">
         <ConfigProvider
           theme={{
             token: {
@@ -225,6 +224,11 @@ const Daily = () => {
             },
           }}
         >
+          <div className="flex justify-end items-end mb-2">
+            <button onClick={handleDownloadPdf}>
+              <FaDownload></FaDownload>
+            </button>
+          </div>
           <Table
             columns={columns}
             dataSource={userData || []}
