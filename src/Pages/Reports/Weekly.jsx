@@ -45,42 +45,55 @@ const Weekly = () => {
       render: (text, record, index) => index + 1,
     },
     {
-      title: "Name",
-      key: "name",
+      title: "Work Description",
+      key: "workDescription",
       render: (_, record) => (
         <div className="flex items-center gap-2">
-          <Avatar
-            size={40}
-            className="shadow-md"
-            src={record?.staffRef?.staffImage}
-          />
-          <span>{record?.staffRef?.name || "N/A"}</span>
+          <span>{record?.workDescription || "N/A"}</span>
         </div>
       ),
     },
     {
-      title: "Staff ID",
-      dataIndex: ["staffRef", "staffId"],
-      key: "staffId",
-      render: (_, record) => record?.staffRef?.staffId || "N/A",
+      title: "Job Location",
+      dataIndex: "jobLocation",
+      key: "jobLocation",
+      render: (_, record) => record?.jobLocation || "N/A",
     },
     {
-      title: "Designation",
-      dataIndex: ["staffRef", "designation"],
-      key: "designation",
-      render: (_, record) => record?.staffRef?.designation || "N/A",
+      title: "Travel Time",
+      dataIndex: "travelTime",
+      key: "travelTime",
+      render: (_, record) => record?.travelTime || "N/A",
     },
     {
-      title: "Check In",
-      dataIndex: "checkInTime",
-      key: "checkInTime",
-      render: (text) => (text !== "0" ? text : "N/A"),
+      title: "Stay Away From Home",
+      dataIndex: "stayAwayFromHome",
+      key: "stayAwayFromHome",
+      render: (_, record) => record?.stayAwayFromHome || "N/A",
     },
     {
-      title: "Check Out",
-      dataIndex: "checkOutTime",
-      key: "checkOutTime",
-      render: (text) => (text !== "0" ? text : "N/A"),
+      title: "Issue Or Delays",
+      dataIndex: "issueOrDelays",
+      key: "issueOrDelays",
+      render: (_, record) => record?.issueOrDelays || "N/A",
+    },
+    {
+      title: "Mileage Logged",
+      dataIndex: "mileageLogged",
+      key: "mileageLogged",
+      render: (_, record) => record?.mileageLogged || "N/A",
+    },
+    {
+      title: "Any Wasted Material",
+      dataIndex: "anyWastedMaterial",
+      key: "anyWastedMaterial",
+      render: (_, record) => record?.anyWastedMaterial || "N/A",
+    },
+    {
+      title: "Expenses Incurred",
+      dataIndex: "expensesIncurred",
+      key: "expensesIncurred",
+      render: (_, record) => record?.expensesIncurred || "N/A",
     },
     {
       title: "Total Hours",
@@ -107,29 +120,29 @@ const Weekly = () => {
         />
       ),
     },
-    {
-      title: "View",
-      key: "view",
-      render: (_, record) => (
-        <ConfigProvider
-          theme={{
-            components: {
-              Button: {
-                defaultHoverBorderColor: "rgb(47,84,235)",
-                defaultHoverColor: "rgb(47,84,235)",
-                defaultBorderColor: "rgb(47,84,235)",
-              },
-            },
-          }}
-        >
-          <Space size="middle">
-            <button onClick={() => showModal(record)}>
-              <FaEye className="text-2xl" />
-            </button>
-          </Space>
-        </ConfigProvider>
-      ),
-    },
+    // {
+    //   title: "View",
+    //   key: "view",
+    //   render: (_, record) => (
+    //     <ConfigProvider
+    //       theme={{
+    //         components: {
+    //           Button: {
+    //             defaultHoverBorderColor: "rgb(47,84,235)",
+    //             defaultHoverColor: "rgb(47,84,235)",
+    //             defaultBorderColor: "rgb(47,84,235)",
+    //           },
+    //         },
+    //       }}
+    //     >
+    //       <Space size="middle">
+    //         <button onClick={() => showModal(record)}>
+    //           <FaEye className="text-2xl" />
+    //         </button>
+    //       </Space>
+    //     </ConfigProvider>
+    //   ),
+    // },
   ];
 
   const handleDownloadPdf = async () => {
@@ -187,7 +200,7 @@ const Weekly = () => {
   return (
     <div className="">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-10"></div>
-      <div className=" overflow-x-auto">
+      <div ref={printRef} className=" overflow-x-auto">
         <ConfigProvider
           theme={{
             token: {
@@ -204,6 +217,12 @@ const Weekly = () => {
             },
           }}
         >
+          <div className="flex justify-end items-end mb-2">
+            <button onClick={handleDownloadPdf}>
+              <FaDownload></FaDownload>
+            </button>
+          </div>
+
           <Table
             columns={columns}
             dataSource={userData || []}
