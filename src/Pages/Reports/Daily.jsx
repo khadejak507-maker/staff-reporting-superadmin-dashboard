@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { Avatar, ConfigProvider, Pagination, Select, Space, Table } from "antd";
+import { ConfigProvider, Pagination, Select, Space, Table } from "antd";
 import { useEffect, useRef, useState } from "react";
 
 import { Modal } from "antd";
@@ -8,12 +8,13 @@ import { FaDownload, FaEye } from "react-icons/fa";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { useGetDailyReportsQuery } from "../../redux/Feature/reportApi/reportApi";
+import { BASE_URL } from "../../redux/utils/utils";
 const Daily = () => {
   const printRef = useRef();
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: dailyData } = useGetDailyReportsQuery();
+  const { data: dailyData, refetch } = useGetDailyReportsQuery();
   const userData = dailyData?.data;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -34,11 +35,7 @@ const Daily = () => {
   };
 
   const handleSearch = () => {
-    // refetc();
-  };
-
-  const handleSession = (record) => {
-    console.log(record);
+    refetch();
   };
 
   const columns = [
@@ -46,6 +43,15 @@ const Daily = () => {
       title: "#",
       key: "slno",
       render: (text, record, index) => index + 1,
+    },
+    {
+      title: "Staff ID",
+      key: "staffId",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.staffRef?.staffId || "N/A"}</span>
+        </div>
+      ),
     },
     {
       title: "Work Description",
@@ -72,7 +78,11 @@ const Daily = () => {
       title: "Stay Away From Home",
       dataIndex: "stayAwayFromHome",
       key: "stayAwayFromHome",
-      render: (_, record) => record?.stayAwayFromHome || "N/A",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.stayAwayFromHome ? " Yes" : "No"}</span>
+        </div>
+      ),
     },
     {
       title: "Issue Or Delays",
@@ -90,7 +100,11 @@ const Daily = () => {
       title: "Any Wasted Material",
       dataIndex: "anyWastedMaterial",
       key: "anyWastedMaterial",
-      render: (_, record) => record?.anyWastedMaterial || "N/A",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.anyWastedMaterial ? " Yes" : "No"}</span>
+        </div>
+      ),
     },
     {
       title: "Expenses Incurred",
@@ -104,48 +118,48 @@ const Daily = () => {
       key: "totalWorkedTime",
       render: (text) => (text !== "NaNh NaNm" ? text : "N/A"),
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (text, record) => (
-        <Select
-          style={{ width: 120 }}
-          showSearch
-          defaultValue={record?.status}
-          optionFilterProp="label"
-          options={[
-            { value: "Approve", label: "Approve" },
-            { value: "Pending", label: "Pending" },
-            { value: "Cancelled", label: "Cancelled" },
-          ]}
-          placeholder="Select status"
-        />
-      ),
-    },
     // {
-    //   title: "View",
-    //   key: "view",
-    //   render: (_, record) => (
-    //     <ConfigProvider
-    //       theme={{
-    //         components: {
-    //           Button: {
-    //             defaultHoverBorderColor: "rgb(47,84,235)",
-    //             defaultHoverColor: "rgb(47,84,235)",
-    //             defaultBorderColor: "rgb(47,84,235)",
-    //           },
-    //         },
-    //       }}
-    //     >
-    //       <Space size="middle">
-    //         <button onClick={() => showModal(record)}>
-    //           <FaEye className="text-2xl" />
-    //         </button>
-    //       </Space>
-    //     </ConfigProvider>
+    //   title: "Status",
+    //   dataIndex: "status",
+    //   key: "status",
+    //   render: (text, record) => (
+    //     <Select
+    //       style={{ width: 120 }}
+    //       showSearch
+    //       defaultValue={record?.status}
+    //       optionFilterProp="label"
+    //       options={[
+    //         { value: "Approve", label: "Approve" },
+    //         { value: "Pending", label: "Pending" },
+    //         { value: "Cancelled", label: "Cancelled" },
+    //       ]}
+    //       placeholder="Select status"
+    //     />
     //   ),
     // },
+    {
+      title: "View",
+      key: "view",
+      render: (_, record) => (
+        <ConfigProvider
+          theme={{
+            components: {
+              Button: {
+                defaultHoverBorderColor: "rgb(47,84,235)",
+                defaultHoverColor: "rgb(47,84,235)",
+                defaultBorderColor: "rgb(47,84,235)",
+              },
+            },
+          }}
+        >
+          <Space size="middle">
+            <button onClick={() => showModal(record)}>
+              <FaEye className="text-2xl" />
+            </button>
+          </Space>
+        </ConfigProvider>
+      ),
+    },
   ];
 
   const handleDownloadPdf = async () => {
@@ -202,7 +216,7 @@ const Daily = () => {
     const cssPrimaryColor = rootStyles
       .getPropertyValue("--color-primary")
       .trim();
-    setPrimaryColor(cssPrimaryColor || "#3b19d5"); // fallback to default
+    setPrimaryColor(cssPrimaryColor || "#3b19d5");
   }, []);
   return (
     <div className="">
@@ -262,29 +276,11 @@ const Daily = () => {
                 title="Download PDF"
               />
             </div>
-            <div>
-              <img
-                src={selectedUser?.staffRef?.staffImage || "/default.png"}
-                className="h-20 w-full border"
-                crossOrigin="anonymous"
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="font-bold">
-                  Name: {selectedUser?.staffRef?.name || "N/A"}
-                </p>
-              </div>
-
-              <div>
-                <p className="font-bold">
                   Staff ID: {selectedUser?.staffRef?.staffId || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="font-bold">
-                  Additional UserId:{" "}
-                  {selectedUser?.staffRef?.additionalUserId || "N/A"}
                 </p>
               </div>
 
@@ -293,14 +289,10 @@ const Daily = () => {
                   Designation: {selectedUser?.staffRef?.designation || "N/A"}
                 </p>
               </div>
+
               <div>
                 <p className="font-bold">
                   Rates: {selectedUser?.staffRef?.rates || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="font-bold">
-                  Password: {selectedUser?.staffRef?.password || "N/A"}
                 </p>
               </div>
 
@@ -354,13 +346,15 @@ const Daily = () => {
 
               <div>
                 <p className="font-bold">
-                  Stay Away From Home: {selectedUser?.stayAwayFromHome || "N/A"}
+                  Stay Away From Home:{" "}
+                  {selectedUser?.stayAwayFromHome ? "Yes" : "No"}
                 </p>
               </div>
 
               <div>
                 <p className="font-bold">
-                  Wasted Material: {selectedUser?.anyWastedMaterial || "N/A"}
+                  Wasted Material:{" "}
+                  {selectedUser?.anyWastedMaterial ? "Yes" : "No"}
                 </p>
               </div>
 
@@ -394,16 +388,11 @@ const Daily = () => {
                 Status: {selectedUser?.status || "N/A"}
               </p>
             </div>
+
             <div>
               <p className="font-bold">
-                urgent:{" "}
-                {selectedUser?.urgent === false ? "Not Urgent" : "Urgent"}
-              </p>
-            </div>
-            <div>
-              <p className="font-bold">
-                isBlocked:{" "}
-                {selectedUser?.isBlocked === true ? "Blocked" : "Unblock"}
+                Urgent:{" "}
+                {selectedUser?.urgent === true ? "Urgent" : "Not Urgent"}
               </p>
             </div>
 
@@ -412,7 +401,7 @@ const Daily = () => {
               <p className="font-bold">Photo or File Uploaded:</p>
               {selectedUser?.photoOrFileUploaded ? (
                 <img
-                  src={selectedUser.photoOrFileUploaded}
+                  src={`${BASE_URL}${selectedUser.photoOrFileUploaded}`}
                   alt="Uploaded file"
                   className="max-w-xs border rounded shadow"
                 />
@@ -425,7 +414,7 @@ const Daily = () => {
               <p className="font-bold">Issue or Delays Image:</p>
               {selectedUser?.issueOrDelaysImage ? (
                 <img
-                  src={selectedUser.issueOrDelaysImage}
+                  src={`${BASE_URL}${selectedUser.issueOrDelaysImage}`}
                   alt="Issue or Delay"
                   className="max-w-xs border rounded shadow"
                 />
@@ -438,7 +427,7 @@ const Daily = () => {
               <p className="font-bold">Expenses Incurred Image:</p>
               {selectedUser?.expensesIncurredImage ? (
                 <img
-                  src={selectedUser.expensesIncurredImage}
+                  src={`${BASE_URL}${selectedUser.expensesIncurredImage}`}
                   alt="Expenses"
                   className="max-w-xs border rounded shadow"
                 />
