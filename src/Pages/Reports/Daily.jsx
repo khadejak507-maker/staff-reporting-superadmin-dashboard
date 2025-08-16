@@ -8,6 +8,7 @@ import { FaDownload, FaEye } from "react-icons/fa";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { useGetDailyReportsQuery } from "../../redux/Feature/reportApi/reportApi";
+import { BASE_URL } from "../../redux/utils/utils";
 const Daily = () => {
   const printRef = useRef();
   const [pageSize, setPageSize] = useState(10);
@@ -36,10 +37,6 @@ const Daily = () => {
   const handleSearch = () => {
     refetch();
   };
-
-  // const handleSession = (record) => {
-  //   console.log(record);
-  // };
 
   const columns = [
     {
@@ -404,7 +401,7 @@ const Daily = () => {
               <p className="font-bold">Photo or File Uploaded:</p>
               {selectedUser?.photoOrFileUploaded ? (
                 <img
-                  src={selectedUser.photoOrFileUploaded}
+                  src={`${BASE_URL}${selectedUser.photoOrFileUploaded}`}
                   alt="Uploaded file"
                   className="max-w-xs border rounded shadow"
                 />
@@ -417,7 +414,7 @@ const Daily = () => {
               <p className="font-bold">Issue or Delays Image:</p>
               {selectedUser?.issueOrDelaysImage ? (
                 <img
-                  src={selectedUser.issueOrDelaysImage}
+                  src={`${BASE_URL}${selectedUser.issueOrDelaysImage}`}
                   alt="Issue or Delay"
                   className="max-w-xs border rounded shadow"
                 />
@@ -430,7 +427,7 @@ const Daily = () => {
               <p className="font-bold">Expenses Incurred Image:</p>
               {selectedUser?.expensesIncurredImage ? (
                 <img
-                  src={selectedUser.expensesIncurredImage}
+                  src={`${BASE_URL}${selectedUser.expensesIncurredImage}`}
                   alt="Expenses"
                   className="max-w-xs border rounded shadow"
                 />

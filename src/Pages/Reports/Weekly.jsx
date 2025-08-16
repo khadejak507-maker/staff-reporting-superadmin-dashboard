@@ -45,6 +45,15 @@ const Weekly = () => {
       render: (text, record, index) => index + 1,
     },
     {
+      title: "Staff ID",
+      key: "staffId",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.staffRef?.staffId || "N/A"}</span>
+        </div>
+      ),
+    },
+    {
       title: "Work Description",
       key: "workDescription",
       render: (_, record) => (
@@ -69,7 +78,11 @@ const Weekly = () => {
       title: "Stay Away From Home",
       dataIndex: "stayAwayFromHome",
       key: "stayAwayFromHome",
-      render: (_, record) => record?.stayAwayFromHome || "N/A",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.stayAwayFromHome ? " Yes" : "No"}</span>
+        </div>
+      ),
     },
     {
       title: "Issue Or Delays",
@@ -87,7 +100,11 @@ const Weekly = () => {
       title: "Any Wasted Material",
       dataIndex: "anyWastedMaterial",
       key: "anyWastedMaterial",
-      render: (_, record) => record?.anyWastedMaterial || "N/A",
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <span>{record?.anyWastedMaterial ? " Yes" : "No"}</span>
+        </div>
+      ),
     },
     {
       title: "Expenses Incurred",
@@ -101,48 +118,48 @@ const Weekly = () => {
       key: "totalWorkedTime",
       render: (text) => (text !== "NaNh NaNm" ? text : "N/A"),
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (text, record) => (
-        <Select
-          style={{ width: 120 }}
-          showSearch
-          defaultValue={record?.status}
-          optionFilterProp="label"
-          options={[
-            { value: "Approve", label: "Approve" },
-            { value: "Pending", label: "Pending" },
-            { value: "Cancelled", label: "Cancelled" },
-          ]}
-          placeholder="Select status"
-        />
-      ),
-    },
     // {
-    //   title: "View",
-    //   key: "view",
-    //   render: (_, record) => (
-    //     <ConfigProvider
-    //       theme={{
-    //         components: {
-    //           Button: {
-    //             defaultHoverBorderColor: "rgb(47,84,235)",
-    //             defaultHoverColor: "rgb(47,84,235)",
-    //             defaultBorderColor: "rgb(47,84,235)",
-    //           },
-    //         },
-    //       }}
-    //     >
-    //       <Space size="middle">
-    //         <button onClick={() => showModal(record)}>
-    //           <FaEye className="text-2xl" />
-    //         </button>
-    //       </Space>
-    //     </ConfigProvider>
+    //   title: "Status",
+    //   dataIndex: "status",
+    //   key: "status",
+    //   render: (text, record) => (
+    //     <Select
+    //       style={{ width: 120 }}
+    //       showSearch
+    //       defaultValue={record?.status}
+    //       optionFilterProp="label"
+    //       options={[
+    //         { value: "Approve", label: "Approve" },
+    //         { value: "Pending", label: "Pending" },
+    //         { value: "Cancelled", label: "Cancelled" },
+    //       ]}
+    //       placeholder="Select status"
+    //     />
     //   ),
     // },
+    {
+      title: "View",
+      key: "view",
+      render: (_, record) => (
+        <ConfigProvider
+          theme={{
+            components: {
+              Button: {
+                defaultHoverBorderColor: "rgb(47,84,235)",
+                defaultHoverColor: "rgb(47,84,235)",
+                defaultBorderColor: "rgb(47,84,235)",
+              },
+            },
+          }}
+        >
+          <Space size="middle">
+            <button onClick={() => showModal(record)}>
+              <FaEye className="text-2xl" />
+            </button>
+          </Space>
+        </ConfigProvider>
+      ),
+    },
   ];
 
   const handleDownloadPdf = async () => {
@@ -256,32 +273,11 @@ const Weekly = () => {
                 title="Download PDF"
               />
             </div>
-            <div>
-              <img
-                src={
-                  `${BASE_URL}${selectedUser?.staffRef?.staffImage}` ||
-                  "/default.png"
-                }
-                className="h-20 w-full border"
-                crossOrigin="anonymous"
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="font-bold">
-                  Name: {selectedUser?.staffRef?.name || "N/A"}
-                </p>
-              </div>
-
-              <div>
-                <p className="font-bold">
                   Staff ID: {selectedUser?.staffRef?.staffId || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="font-bold">
-                  Additional UserId:{" "}
-                  {selectedUser?.staffRef?.additionalUserId || "N/A"}
                 </p>
               </div>
 
@@ -290,14 +286,10 @@ const Weekly = () => {
                   Designation: {selectedUser?.staffRef?.designation || "N/A"}
                 </p>
               </div>
+
               <div>
                 <p className="font-bold">
                   Rates: {selectedUser?.staffRef?.rates || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="font-bold">
-                  Password: {selectedUser?.staffRef?.password || "N/A"}
                 </p>
               </div>
 
@@ -351,13 +343,15 @@ const Weekly = () => {
 
               <div>
                 <p className="font-bold">
-                  Stay Away From Home: {selectedUser?.stayAwayFromHome || "N/A"}
+                  Stay Away From Home:{" "}
+                  {selectedUser?.stayAwayFromHome ? "Yes" : "No"}
                 </p>
               </div>
 
               <div>
                 <p className="font-bold">
-                  Wasted Material: {selectedUser?.anyWastedMaterial || "N/A"}
+                  Wasted Material:{" "}
+                  {selectedUser?.anyWastedMaterial ? "Yes" : "No"}
                 </p>
               </div>
 
@@ -391,16 +385,11 @@ const Weekly = () => {
                 Status: {selectedUser?.status || "N/A"}
               </p>
             </div>
+
             <div>
               <p className="font-bold">
-                urgent:{" "}
-                {selectedUser?.urgent === false ? "Not Urgent" : "Urgent"}
-              </p>
-            </div>
-            <div>
-              <p className="font-bold">
-                isBlocked:{" "}
-                {selectedUser?.isBlocked === true ? "Blocked" : "Unblock"}
+                Urgent:{" "}
+                {selectedUser?.urgent === true ? "Urgent" : "Not Urgent"}
               </p>
             </div>
 
