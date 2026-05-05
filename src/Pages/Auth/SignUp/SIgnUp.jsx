@@ -25,8 +25,8 @@ const SIgnUp = () => {
         message.success(res?.message);
         navigate("/");
       }
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // Error toast is shown by baseApi (includes 409 "User already exists")
     }
   };
   return (
@@ -126,7 +126,7 @@ const SIgnUp = () => {
                 </Form.Item>
                 <p className=" text-center mb-5">
                   Already have an Account?
-                  <Link href="sign-in" className=" pl-2">
+                  <Link to="/sign-in" className=" pl-2">
                     Login
                   </Link>
                 </p>
