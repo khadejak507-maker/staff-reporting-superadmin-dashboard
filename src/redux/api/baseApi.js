@@ -18,23 +18,34 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+const apiErrorMessage = (error) => {
+  const d = error?.data;
+  if (typeof d === "string") return d;
+  if (d && typeof d === "object" && d.message != null) return String(d.message);
+  if (typeof error?.error === "string") return error.error;
+  return "Something went wrong";
+};
+
+const COMPANY_LOGO_COLOR_PATH = "get-company-logo-color";
+
 const baseQueryWithRefreshToken = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
-  // internal server error
-  if (result?.error?.status === 500) {
-    message.error(result.error.data.message);
-  }
-  // page not found
-  if (result?.error?.status === 404) {
-    message.error(result.error.data.message);
-  }
-  // forbidden
-  if (result?.error?.status === 403) {
-    message.error(result.error.data.message);
-  }
-  // bad request
-  if (result?.error?.status === 400) {
-    message.error(result.error.data.message);
+  const status = result?.error?.status;
+  const requestUrl =
+    typeof args === "string" ? args : String(args?.url ?? "");
+  const skipToast =
+    status === 404 && requestUrl.includes(COMPANY_LOGO_COLOR_PATH);
+
+  if (
+    !skipToast &&
+    (status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 409 ||
+      status === 500)
+  ) {
+    message.error(apiErrorMessage(result.error));
   }
   // unauthorized
   //   if (result?.error?.status === 401) {
