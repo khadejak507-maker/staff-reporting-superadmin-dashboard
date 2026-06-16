@@ -271,7 +271,12 @@ const StaffDetails = () => {
         ></Pagination>
       </div>
 
-      <Modal open={isModalOpen} onCancel={handleCancel} footer={null}>
+      <Modal
+        open={isModalOpen}
+        onCancel={handleCancel}
+        footer={null}
+        width={selectedUser?.Qualifications?.toLowerCase().endsWith(".pdf") ? 720 : 520}
+      >
         {selectedUser && (
           <div className="">
             <div className="bg-red-100 text-center relative h-[100px] w-full flex flex-col justify-center items-center">
@@ -326,9 +331,43 @@ const StaffDetails = () => {
                 <p className="font-bold">Allergies:</p>
                 <p>{selectedUser?.allergies || "N/A"}</p>
               </div>
-              <div className="flex gap-2 mb-4">
-                <p className="font-bold">Qualification:</p>
-                <p>{selectedUser?.Qualifications || "N/A"}</p>
+              <div className="mb-4">
+                <p className="font-bold mb-2">Qualification:</p>
+                {!selectedUser?.Qualifications ? (
+                  <p>N/A</p>
+                ) : selectedUser.Qualifications.toLowerCase().endsWith(".pdf") ? (
+                  <div>
+                    <a
+                      href={`${BASE_URL}${selectedUser.Qualifications}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline text-sm"
+                    >
+                      Open qualification PDF in new tab
+                    </a>
+                    <object
+                      data={`${BASE_URL}${selectedUser.Qualifications}#toolbar=0&navpanes=0`}
+                      type="application/pdf"
+                      className="w-full mt-3 rounded border border-gray-200"
+                      style={{ minHeight: "360px" }}
+                    >
+                      <p className="text-sm text-gray-600 p-2">
+                        Unable to preview this PDF.{" "}
+                        <a
+                          href={`${BASE_URL}${selectedUser.Qualifications}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary underline"
+                        >
+                          Open the file
+                        </a>
+                        .
+                      </p>
+                    </object>
+                  </div>
+                ) : (
+                  <p>{selectedUser.Qualifications}</p>
+                )}
               </div>
               <div className="flex gap-2 mb-4">
                 <p className="font-bold">Trade:</p>

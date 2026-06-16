@@ -29,9 +29,9 @@ const MainLayout = () => {
   const userData = adminData?.data;
     useSetPrimaryColorFromToken();
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       {/* haeder */}
-      <div className="h-20 bg-primary text-white flex justify-between  items-center px-2 md:px-20 gap-2">
+      <div className="h-20 bg-primary text-white flex justify-between items-center px-3 md:px-10 lg:px-20 gap-2 shadow-md sticky top-0 z-20">
         {isMobile && (
           <GiHamburgerMenu
             onClick={toggleDrawer}
@@ -49,7 +49,7 @@ const MainLayout = () => {
         </div>
         {/* others section */}
         <div>
-          <div className="flex justify-between items-center gap-2 text-white mx-10">
+          <div className="flex justify-between items-center gap-2 text-white md:mx-6">
             <div className="relative">
               <div className=" flex justify-between items-center gap-5 py-5">
                 {/* <Link to="/notification">
@@ -67,7 +67,7 @@ const MainLayout = () => {
                       alt=""
                       className="w-10 h-10 rounded-full border border-primary"
                     />
-                    <p className="md:text-xl font-semibold text-white">
+                    <p className="hidden sm:block md:text-xl font-semibold text-white">
                       {userData?.name}
                     </p>
                   </div>
@@ -91,7 +91,7 @@ const MainLayout = () => {
           },
         }}
       >
-        <div className="w-full flex ">
+        <div className="w-full flex flex-1">
           {isMobile ? (
             <Drawer
               title="Menu"
@@ -100,16 +100,17 @@ const MainLayout = () => {
               onClose={closeDrawer}
               open={drawer}
               width="80%"
+              styles={{ body: { padding: 0 } }}
               closeIcon={<FaX className="text-black" />}
             >
               <Sidebar onClose={closeDrawer} />
             </Drawer>
           ) : (
-            <div className="w-[30%] lg:w-[18%] ">
+            <div className="w-[26%] lg:w-[18%] bg-primary shrink-0">
               <Sidebar />
             </div>
           )}
-          <div className={`flex-1 bg-[#eeeeee]  ${isMobile ? "p-4" : "p-10"}`}>
+          <div className={`flex-1 bg-[#eeeeee] min-w-0 ${isMobile ? "p-4" : "p-6 lg:p-10"}`}>
             <Outlet />
           </div>
         </div>

@@ -1,188 +1,44 @@
 /* eslint-disable react/prop-types */
-import { useState } from "react";
-import { AiOutlineSetting } from "react-icons/ai";
-import { FiLogOut, FiUserPlus } from "react-icons/fi";
+import { FiLogOut } from "react-icons/fi";
 import { GrNotes } from "react-icons/gr";
-import { BiChevronDown } from "react-icons/bi";
-import { Link } from "react-router-dom";
-import {
-  MdDashboard,
-  MdOutlineAnnouncement,
-  MdPrivacyTip,
-} from "react-icons/md";
-import { LuCircleDollarSign } from "react-icons/lu";
-import { FaUser, FaUsers } from "react-icons/fa";
-import { FaEdit } from "react-icons/fa";
-import { RiTerminalWindowLine } from "react-icons/ri";
-import { IoIosNotificationsOutline } from "react-icons/io";
-import { BsPalette } from "react-icons/bs";
-const Sidebar = ({ closeDrawer }) => {
-  const [active, setActive] = useState("Dashboard");
-  const [openDropdown, setOpenDropdown] = useState("");
+import { Link, useLocation } from "react-router-dom";
 
-  const handleActiveRoute = (item) => {
-    setActive(item);
-    setOpenDropdown("");
-  };
+const menuItems = [
+  { icon: <GrNotes className="h-5 w-5" />, label: "Daily Report", link: "/" },
+];
 
-  const handleSubItemClick = (subItem) => {
-    setActive(subItem);
-    closeDrawer();
-  };
-
-  // const toggleDropdown = (item) => {
-  //     setActive(item);
-  //     setOpenDropdown(openDropdown === item ? "" : item);
-  // };
-  const toggleDropdown = (label) => {
-    // setActive(label);
-    setOpenDropdown(openDropdown === label ? "" : label);
-  };
-
-  const menuItems = [
-    // {
-    //   icon: <MdDashboard className="h-5 w-5" />,
-    //   label: "dashboard",
-    //   Link: "/",
-    // },
-
-    // {
-    //   icon: <FaUser className="h-5 w-5" />,
-    //   label: "Staff Details",
-    //   Link: "/staff-details",
-    // },
-    // {
-    //   icon: <FaUsers className="h-5 w-5" />,
-    //   label: "Add Client",
-    //   Link: "/add-client",
-    // },
-    // {
-    //   icon: <LuCircleDollarSign className="h-5 w-5" />,
-    //   label: "Expenses",
-    //   Link: "/expenses",
-    // },
-    {
-      icon: <GrNotes className="h-5 w-5" />,
-      label: "Daily Report",
-      Link: "/",
-    },
-    // {
-    //   icon: <FiUserPlus className="h-5 w-5" />,
-    //   label: "Create Staff",
-    //   Link: "/create-staff",
-    // },
-    // {
-    //   icon: <MdOutlineAnnouncement className="h-5 w-5" />,
-    //   label: "Office Time & Notice",
-    //   Link: "/office-time",
-    // },
-    // {
-    //   icon: <IoIosNotificationsOutline className="h-5 w-5" />,
-    //   label: "Notification",
-    //   Link: "/notification",
-    // },
-
-    // {
-    //   icon: <AiOutlineSetting className="h-5 w-5" />,
-    //   label: "Settings",
-    //   isDropdown: true,
-    //   subItems: [
-    //     {
-    //       icon: <FaEdit className="h-5 w-5" />,
-    //       label: "About Us",
-    //       Link: "/settings/about-us",
-    //     },
-    //     {
-    //       icon: <MdPolicy className="h-5 w-5" />,
-    //       label: "Contact Us",
-    //       Link: "/settings/contact-us",
-    //     },
-    //     {
-    //       icon: <MdPrivacyTip className="h-5 w-5" />,
-    //       label: "Privacy Policy",
-    //       Link: "/settings/privacy-policy",
-    //     },
-    //     {
-    //       icon: <RiTerminalWindowLine className="h-5 w-5" />,
-    //       label: "Terms & Condition",
-    //       Link: "/settings/terms-condition",
-    //     },
-    //     {
-    //       icon: <BsPalette className="h-5 w-5" />,
-    //       label: "Add Logo And Color ",
-    //       Link: "/settings/add-logo-and-color",
-    //     },
-    //   ],
-    // },
-  ];
+const Sidebar = ({ onClose = () => {} }) => {
+  const location = useLocation();
+  const isActive = (link) => location.pathname === link;
 
   return (
-    <div className="bg-white h-full md:ml-16">
-      <div className="flex flex-col md:h-full">
-        <div className="flex flex-col gap-2 md:my-5 mb-10">
-          {menuItems.map((item) => (
-            <div key={item.label}>
-              <div
-                className={`w-72 flex justify-between items-center px-5 py-2 cursor-pointer rounded-s-2xl  ${
-                  active === item.label
-                    ? "bg-primary text-white font-semibold"
-                    : "bg-white text-black font-semibold"
-                }`}
-                onClick={() =>
-                  item.isDropdown
-                    ? toggleDropdown(item.label)
-                    : handleActiveRoute(item.label)
-                }
-              >
-                <Link to={item.Link}>
-                  <div className="flex items-center gap-3">
-                    {item.icon}
-                    <p>{item.label}</p>
-                    {item.isDropdown && (
-                      <BiChevronDown
-                        className={`transform transition-transform ${
-                          openDropdown === item.label ? "rotate-180" : ""
-                        }`}
-                      />
-                    )}
-                  </div>
-                </Link>
-              </div>
-              {/* Dropdown for sub-items */}
-              {item.isDropdown && openDropdown === item.label && (
-                <div className="flex flex-col">
-                  {item.subItems.map((subItem) => (
-                    <Link to={subItem.Link} key={subItem.label}>
-                      <div
-                        className={`py-2 px-5 cursor-pointer  ${
-                          active === subItem.label
-                            ? "text-white bg-primary font-bold"
-                            : "text-black "
-                        }`}
-                        onClick={() => handleSubItemClick(subItem.label)}
-                      >
-                        <p className="flex items-center gap-2 ml-10">
-                          {subItem.icon}
-                          {subItem.label}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          {/* Logout */}
-          <Link className="text-black hover:text-black" to="/sign-in">
+    // Full-height, full-colour sidebar — fills the whole left column.
+    <div className="h-full min-h-[calc(100vh-5rem)] flex flex-col justify-between bg-primary text-white py-6">
+      <div className="flex flex-col gap-2 px-3">
+        {menuItems.map((item) => (
+          <Link key={item.label} to={item.link} onClick={onClose}>
             <div
-              className="bg-primary w-72 md:mt-20 py-3 flex justify-center items-center cursor-pointer hover:bg-primary text-white"
-              onClick={() => console.log("Logged out")}
+              className={`flex items-center gap-3 px-5 py-3 rounded-xl transition-colors ${
+                isActive(item.link)
+                  ? "bg-white text-primary font-semibold shadow-md"
+                  : "text-white/90 hover:bg-white/10"
+              }`}
             >
-              <FiLogOut className="text-xl" />
-              <p className="ml-2">Log out</p>
+              {item.icon}
+              <span>{item.label}</span>
             </div>
           </Link>
-        </div>
+        ))}
+      </div>
+
+      {/* Log out pinned to the bottom */}
+      <div className="px-3">
+        <Link to="/sign-in" onClick={onClose}>
+          <div className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors cursor-pointer">
+            <FiLogOut className="text-xl" />
+            <span className="font-medium">Log out</span>
+          </div>
+        </Link>
       </div>
     </div>
   );
