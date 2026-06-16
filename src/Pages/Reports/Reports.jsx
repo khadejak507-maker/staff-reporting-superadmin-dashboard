@@ -8,8 +8,11 @@ import {
   Modal,
   Select,
   Space,
+  Spin,
   Table,
+  message,
 } from "antd";
+import { LoadingOutlined } from "@ant-design/icons";
 import { FaDownload, FaEye } from "react-icons/fa";
 import dayjs from "dayjs";
 import html2canvas from "html2canvas";
@@ -57,13 +60,27 @@ const FilePreview = ({ url, label }) => {
   return <img src={full} alt={label} className="max-w-xs border rounded shadow" />;
 };
 
-// One field on its own line.
-const Row = ({ label, value }) => (
-  <div className="py-1 border-b border-gray-100">
-    <span className="font-semibold">{label}:</span>{" "}
-    <span>{value === undefined || value === null || value === "" ? "N/A" : value}</span>
-  </div>
-);
+// One field per row. `block` stacks the value on its own line below the
+// label (used for long free-text fields like notes / progress).
+const Row = ({ label, value, block }) => {
+  const display =
+    value === undefined || value === null || value === "" ? "N/A" : value;
+  return (
+    <div className="py-1 border-b border-gray-100">
+      {block ? (
+        <>
+          <div className="font-semibold">{label}:</div>
+          <div className="whitespace-pre-wrap break-words">{display}</div>
+        </>
+      ) : (
+        <>
+          <span className="font-semibold">{label}:</span>{" "}
+          <span>{display}</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 const SectionTitle = ({ children }) => (
   <div className="font-bold text-base mt-4 mb-1 pt-2 border-t-2 border-gray-300">
@@ -94,7 +111,7 @@ const ReportDetail = ({ r }) => {
       <SectionTitle>Commercial</SectionTitle>
       <Row label="Approved Hours" value={r?.approvedHours} />
       <Row label="Actual Hours" value={r?.workedHours != null ? `${r.workedHours}h` : null} />
-      <Row label="Variations" value={r?.variations} />
+      <Row label="Variations" value={r?.variations} block />
       <Row label="Travel Time" value={r?.travelTime} />
       <Row label="Mileage Logged" value={r?.mileageLogged} />
       <Row label="Stay Away From Home" value={r?.stayAwayFromHome ? "Yes" : "No"} />
@@ -109,17 +126,18 @@ const ReportDetail = ({ r }) => {
       <Row label="Invoice Cost" value={amt(r?.invoiceCost)} />
 
       <SectionTitle>Site Notes</SectionTitle>
-      <Row label="Daily Progress" value={r?.workDescription} />
-      <Row label="Health & Safety" value={r?.healthSafetyNotes} />
+      <Row label="Daily Progress" value={r?.workDescription} block />
+      <Row label="Health & Safety" value={r?.healthSafetyNotes} block />
       <Row
         label="Material Issues"
         value={r?.materialIssues || (r?.anyWastedMaterial ? "Yes" : null)}
+        block
       />
-      <Row label="Access Issues" value={r?.accessIssues} />
+      <Row label="Access Issues" value={r?.accessIssues} block />
       <Row label="Weather" value={r?.weather} />
-      <Row label="Delays" value={r?.issueOrDelays} />
-      <Row label="Delay Reasons" value={r?.delayReasons} />
-      <Row label="Additional Notes" value={r?.addAdditionalNotes} />
+      <Row label="Delays" value={r?.issueOrDelays} block />
+      <Row label="Delay Reasons" value={r?.delayReasons} block />
+      <Row label="Additional Notes" value={r?.addAdditionalNotes} block />
 
       <SectionTitle>Uploads</SectionTitle>
       <Row label="Photo / File" value={<FilePreview url={r?.photoOrFileUploaded} label="file" />} />
@@ -140,6 +158,8 @@ const Reports = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [downloading, setDownloading] = useState(false);
+  const [singleDownloading, setSingleDownloading] = useState(false);
   const pageSize = 10;
 
   // Build query params from the active filters + the report's default period.
@@ -338,36 +358,50 @@ const Reports = () => {
   // Grouped reports (client/labour) have no per-report detail, so they export
   // the visible table instead.
   const handleDownloadPdf = async () => {
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const margin = 10;
-    const usableWidth = pdfWidth - margin * 2;
+    if (downloading) return;
+    setDownloading(true);
+    const hide = message.loading("Generating PDF, please wait…", 0);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const margin = 10;
+      const usableWidth = pdfWidth - margin * 2;
 
-    if (GROUPED.includes(reportType)) {
-      if (!printRef.current) return;
-      const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL("image/png");
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
-      pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
-      pdf.save(`${reportType}-report.pdf`);
-      return;
-    }
+      if (GROUPED.includes(reportType)) {
+        if (!printRef.current) return;
+        const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
+        pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+        pdf.save(`${reportType}-report.pdf`);
+        return;
+      }
 
-    const nodes = exportRef.current?.querySelectorAll(".pdf-report");
-    if (!nodes || !nodes.length) return;
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    for (let i = 0; i < nodes.length; i++) {
-      const canvas = await html2canvas(nodes[i], { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL("image/png");
-      const imgProps = pdf.getImageProperties(imgData);
-      let imgHeight = (imgProps.height * usableWidth) / imgProps.width;
-      const maxHeight = pageHeight - margin * 2;
-      if (imgHeight > maxHeight) imgHeight = maxHeight;
-      if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+      const nodes = exportRef.current?.querySelectorAll(".pdf-report");
+      if (!nodes || !nodes.length) {
+        message.info("No reports to download on this page.");
+        return;
+      }
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      for (let i = 0; i < nodes.length; i++) {
+        const canvas = await html2canvas(nodes[i], { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const imgProps = pdf.getImageProperties(imgData);
+        let imgHeight = (imgProps.height * usableWidth) / imgProps.width;
+        const maxHeight = pageHeight - margin * 2;
+        if (imgHeight > maxHeight) imgHeight = maxHeight;
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+      }
+      pdf.save(`${reportType}-report-page-${currentPage}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed", error);
+      message.error("Could not generate the PDF. Please try again.");
+    } finally {
+      hide();
+      setDownloading(false);
     }
-    pdf.save(`${reportType}-report-page-${currentPage}.pdf`);
   };
 
   const [primaryColor, setPrimaryColor] = useState("#d51920");
@@ -433,8 +467,22 @@ const Reports = () => {
         >
           <div className="flex justify-between items-end mb-2">
             <span className="text-sm text-gray-500">{dataSource.length} record(s)</span>
-            <button onClick={handleDownloadPdf} title="Download detailed PDF (current page)">
-              <FaDownload />
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              title="Download detailed PDF (current page)"
+              className={`flex items-center gap-2 text-sm ${
+                downloading ? "opacity-60 cursor-not-allowed" : ""
+              }`}
+            >
+              {downloading ? (
+                <>
+                  <Spin indicator={<LoadingOutlined spin />} size="small" />
+                  <span>Generating…</span>
+                </>
+              ) : (
+                <FaDownload />
+              )}
             </button>
           </div>
           <Table
@@ -462,25 +510,47 @@ const Reports = () => {
         {selected && (
           <div className="mt-2">
             <div className="flex justify-end mb-2">
-              <FaDownload
-                className="cursor-pointer"
-                size={18}
+              <button
+                disabled={singleDownloading}
                 title="Download this report"
+                className={`flex items-center gap-2 text-sm ${
+                  singleDownloading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                }`}
                 onClick={async () => {
-                  const node = document.getElementById("single-report-detail");
-                  if (!node) return;
-                  const canvas = await html2canvas(node, { scale: 2, useCORS: true });
-                  const imgData = canvas.toDataURL("image/png");
-                  const pdf = new jsPDF("p", "mm", "a4");
-                  const pdfWidth = pdf.internal.pageSize.getWidth();
-                  const margin = 10;
-                  const usableWidth = pdfWidth - margin * 2;
-                  const imgProps = pdf.getImageProperties(imgData);
-                  const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
-                  pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
-                  pdf.save(`report-${selected?.staffRef?.staffId || "detail"}.pdf`);
+                  if (singleDownloading) return;
+                  setSingleDownloading(true);
+                  const hide = message.loading("Generating PDF, please wait…", 0);
+                  try {
+                    const node = document.getElementById("single-report-detail");
+                    if (!node) return;
+                    const canvas = await html2canvas(node, { scale: 2, useCORS: true });
+                    const imgData = canvas.toDataURL("image/png");
+                    const pdf = new jsPDF("p", "mm", "a4");
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const margin = 10;
+                    const usableWidth = pdfWidth - margin * 2;
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
+                    pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+                    pdf.save(`report-${selected?.staffRef?.staffId || "detail"}.pdf`);
+                  } catch (error) {
+                    console.error("PDF generation failed", error);
+                    message.error("Could not generate the PDF. Please try again.");
+                  } finally {
+                    hide();
+                    setSingleDownloading(false);
+                  }
                 }}
-              />
+              >
+                {singleDownloading ? (
+                  <>
+                    <Spin indicator={<LoadingOutlined spin />} size="small" />
+                    <span>Generating…</span>
+                  </>
+                ) : (
+                  <FaDownload size={18} />
+                )}
+              </button>
             </div>
             <div id="single-report-detail">
               <ReportDetail r={selected} />
