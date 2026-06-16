@@ -89,16 +89,17 @@ const SignIn = () => {
                 </Form.Item>
                 <div className="flex justify-between items-center my-2">
                   <Form.Item name="remember" valuePropName="checked" noStyle>
-                    <Checkbox
+                    <div></div>
+                    {/* <Checkbox
                       required
                       className=" text-black text-md hover:text-black text-md"
                     >
                       Remember Password
-                    </Checkbox>
+                    </Checkbox> */}
                   </Form.Item>
                   <Link to="/forgate-password" className=" ">
                     <p className="text-red-600 hover:text-red-600 text-md  ">
-                      Forgate Password
+                      Forgot Password
                     </p>
                   </Link>
                 </div>
@@ -110,12 +111,12 @@ const SignIn = () => {
                     Login
                   </button>
                 </Form.Item>
-                <p className="text-center text-gray-500">
+                {/* <p className="text-center text-gray-500">
                   Dont have an account?{" "}
                   <span>
                     <Link to="/sign-up">Register</Link>{" "}
                   </span>{" "}
-                </p>
+                </p> */}
               </Form>
             </div>
           </div>
