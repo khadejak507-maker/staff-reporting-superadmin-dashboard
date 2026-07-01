@@ -17,7 +17,11 @@ import { FaDownload, FaEye } from "react-icons/fa";
 import dayjs from "dayjs";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { useGetReportsQuery } from "../../redux/Feature/reportApi/reportApi";
+import {
+  useGetReportsQuery,
+  useGetCompaniesQuery,
+  useGetClientsByCompanyQuery,
+} from "../../redux/Feature/reportApi/reportApi";
 import { BASE_URL } from "../../redux/utils/utils";
 
 const { RangePicker } = DatePicker;
@@ -151,6 +155,7 @@ const Reports = () => {
   const printRef = useRef();
   const exportRef = useRef();
   const [reportType, setReportType] = useState("daily");
+  const [ownerId, setOwnerId] = useState();
   const [clientId, setClientId] = useState();
   const [jobId, setJobId] = useState();
   const [dateRange, setDateRange] = useState(null);
@@ -165,6 +170,7 @@ const Reports = () => {
   // Build query params from the active filters + the report's default period.
   const params = useMemo(() => {
     const p = {};
+    if (ownerId) p.ownerId = ownerId;
     if (clientId) p.clientId = clientId;
     if (jobId) p.jobId = jobId;
     if (search) p.search = search;
@@ -182,21 +188,47 @@ const Reports = () => {
       p.month = true;
     }
     return p;
-  }, [reportType, clientId, jobId, search, dateRange]);
+  }, [reportType, ownerId, clientId, jobId, search, dateRange]);
 
   const { data: reportRes, isFetching } = useGetReportsQuery(params);
   const rows = reportRes?.data || [];
 
-  // Unfiltered fetch purely to populate the Client / Project dropdowns.
-  const { data: allRes } = useGetReportsQuery({});
+  // Companies (owner accounts) for the "Filter by Company" dropdown.
+  const { data: companyRes } = useGetCompaniesQuery();
+  const companyOptions = useMemo(
+    () =>
+      (companyRes?.data || []).map((c) => ({
+        value: c._id,
+        label: c.companyName,
+      })),
+    [companyRes]
+  );
+
+  // Fetch purely to populate the Client / Project dropdowns. Scoped to the
+  // selected company so those options only list that company's clients/jobs.
+  const { data: allRes } = useGetReportsQuery(ownerId ? { ownerId } : {});
+
+  // Company → Client cascade: once a company is picked, list that company's
+  // clients from the dedicated endpoint (complete list, not just clients that
+  // happen to have reports). With no company selected, fall back to clients
+  // derived from all reports so the filter still works globally.
+  const { data: companyClientsRes } = useGetClientsByCompanyQuery(ownerId, {
+    skip: !ownerId,
+  });
   const clientOptions = useMemo(() => {
+    if (ownerId) {
+      return (companyClientsRes?.data || []).map((c) => ({
+        value: c._id,
+        label: c.name || c._id,
+      }));
+    }
     const map = new Map();
     (allRes?.data || []).forEach((r) => {
       const c = r.clientId;
       if (c?._id && !map.has(c._id)) map.set(c._id, c.name || c._id);
     });
     return [...map].map(([value, label]) => ({ value, label }));
-  }, [allRes]);
+  }, [ownerId, companyClientsRes, allRes]);
   const projectOptions = useMemo(() => {
     const map = new Map();
     (allRes?.data || []).forEach((r) => {
@@ -412,6 +444,7 @@ const Reports = () => {
   }, []);
 
   const resetFilters = () => {
+    setOwnerId(undefined);
     setClientId(undefined);
     setJobId(undefined);
     setDateRange(null);
@@ -419,7 +452,7 @@ const Reports = () => {
   };
 
   // Reset to page 1 whenever the data set changes.
-  useEffect(() => setCurrentPage(1), [reportType, clientId, jobId, dateRange, search]);
+  useEffect(() => setCurrentPage(1), [reportType, ownerId, clientId, jobId, dateRange, search]);
 
   return (
     <div>
@@ -440,6 +473,16 @@ const Reports = () => {
 
       {/* Filters: Client / Project / Date (per the brief) */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
+        <Select allowClear showSearch optionFilterProp="label" placeholder="Filter by Company"
+          style={{ minWidth: 200 }} value={ownerId}
+          onChange={(v) => {
+            // Client/Project belong to the previously selected company, so
+            // clear them when switching companies to avoid a stale filter.
+            setOwnerId(v);
+            setClientId(undefined);
+            setJobId(undefined);
+          }}
+          options={companyOptions} />
         <Select allowClear showSearch optionFilterProp="label" placeholder="Filter by Client"
           style={{ minWidth: 180 }} value={clientId} onChange={setClientId} options={clientOptions} />
         <Select allowClear showSearch optionFilterProp="label" placeholder="Filter by Project"

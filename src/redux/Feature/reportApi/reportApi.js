@@ -26,6 +26,26 @@ const ReportApi = baseApi.injectEndpoints({
       providesTags: ["reports"],
     }),
 
+    // Companies (owner accounts) for the Data Harvest "Filter by Company"
+    // dropdown. Each item's `_id` is the owner id used as the `ownerId` filter.
+    getCompanies: builder.query({
+      query: () => ({
+        url: `/company/all-companies`,
+        method: "GET",
+      }),
+      providesTags: ["companies"],
+    }),
+
+    // Clients belonging to a selected company (Company → Client cascade). Skip
+    // the request until a company (ownerId) is chosen.
+    getClientsByCompany: builder.query({
+      query: (ownerId) => ({
+        url: `/client/get-clients-by-company?ownerId=${ownerId}`,
+        method: "GET",
+      }),
+      providesTags: ["companyClients"],
+    }),
+
     // Legacy queries kept for backwards compatibility.
     getDailyReports: builder.query({
       query: () => ({
@@ -55,6 +75,8 @@ const ReportApi = baseApi.injectEndpoints({
 
 export const {
   useGetReportsQuery,
+  useGetCompaniesQuery,
+  useGetClientsByCompanyQuery,
   useGetDailyReportsQuery,
   useGetWeklyReportQuery,
   useUpdateExpenceStatusMutation,
