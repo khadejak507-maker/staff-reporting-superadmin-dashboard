@@ -26,23 +26,23 @@ import { BASE_URL } from "../../redux/utils/utils";
 
 const { RangePicker } = DatePicker;
 
-// Report views requested in the Forma brief.
+// Report views. Daily / Weekly / Monthly are gone — they are now a single
+// "All Reports" list that the date-range filter narrows to any period.
 const REPORT_TYPES = [
-  { key: "daily", label: "Daily" },
-  { key: "weekly", label: "Weekly" },
-  { key: "monthly", label: "Monthly" },
+  { key: "reports", label: "All Reports" },
   { key: "client", label: "Client" },
   { key: "productivity", label: "Productivity" },
   { key: "labour", label: "Labour" },
   { key: "cost", label: "Cost" },
 ];
 
+// Views rendered as a single screenshot of the on-screen table.
 const GROUPED = ["client", "labour"];
 
 // Pull a plain number out of free-text fields like "2.5h" or "20".
 const toNumber = (val) => {
   if (val === null || val === undefined) return 0;
-  const n = parseFloat(String(val).replace(/[^0-9.\-]/g, ""));
+  const n = parseFloat(String(val).replace(/[^0-9.-]/g, ""));
   return isNaN(n) ? 0 : n;
 };
 
@@ -50,7 +50,7 @@ const toNumber = (val) => {
 const amt = (n) => (Number(n) || 0).toFixed(2);
 const fmtDate = (d) => (d ? dayjs(d).format("DD MMM YYYY") : "N/A");
 
-// Travel time is stored by the app as free text ("2 hours 30 minutes",
+// Travel/delay time is stored by the app as free text ("2 hours 30 minutes",
 // "45 minutes", "1 hour", "0"), and occasionally as "HH:MM" from AI extraction.
 // Return the value in decimal hours so it can be summed.
 const travelHours = (val) => {
@@ -76,9 +76,31 @@ const fmtHours = (h) => {
   return mm ? `${hh}h ${mm}m` : `${hh}h`;
 };
 
+// Travel cost for one report =
+//   staff mileage rate x total miles  +  total travel time x hourly rate.
+// The hourly travel rate is the staff's dedicated per-hour travel rate
+// (mileageRatePerHour) when set; otherwise it falls back to the working rate.
+// The travel rate REPLACES the working rate for travel hours (it is not added
+// on top), matching how labour cost now pays travel.
+const travelCostForReport = (r) => {
+  const staff = r?.staffRef || {};
+  const miles = toNumber(r?.mileageLogged);
+  const th = travelHours(r?.travelTime);
+  const mileageRate = Number(staff.mileageRate) || 0;
+  const perHourTravel = Number(staff.mileageRatePerHour) || 0;
+  const hourly = perHourTravel > 0 ? perHourTravel : Number(staff.rates) || 0;
+  return miles * mileageRate + th * hourly;
+};
+
+// Did the staff actually record a delay on this report? (delay time entered,
+// a delay reason, or a logged issue/delay).
+const reportHasDelay = (r) =>
+  travelHours(r?.delayTime) > 0 ||
+  Boolean(String(r?.delayReasons || "").trim()) ||
+  Boolean(String(r?.issueOrDelays || "").trim());
+
 // The app has no dedicated "additional job number" field — it appends the value
-// to the additional-notes text as "Additional job reference: <ref>". Pull it back
-// out so the Productivity view can show it under Variations.
+// to the additional-notes text as "Additional job reference: <ref>".
 const extractJobRef = (notes) => {
   if (!notes) return null;
   const m = String(notes).match(/Additional job reference:\s*(.+)/i);
@@ -99,8 +121,7 @@ const FilePreview = ({ url, label }) => {
   return <img src={full} alt={label} className="max-w-xs border rounded shadow" />;
 };
 
-// One field per row. `block` stacks the value on its own line below the
-// label (used for long free-text fields like notes / progress).
+// One field per row. `block` stacks the value on its own line below the label.
 const Row = ({ label, value, block }) => {
   const display =
     value === undefined || value === null || value === "" ? "N/A" : value;
@@ -127,8 +148,8 @@ const SectionTitle = ({ children }) => (
   </div>
 );
 
-// Reusable detail view — used both in the modal and in the PDF export.
-// Every field is on a separate line.
+// Full per-report detail — used in the modal and the per-report PDF export
+// for the All Reports list.
 const ReportDetail = ({ r }) => {
   if (!r) return null;
   return (
@@ -189,10 +210,145 @@ const ReportDetail = ({ r }) => {
   );
 };
 
+// Productivity detail — ONE consolidated report per day per job. Everyone on
+// that job that day is added together into a single report (no per-staff pages,
+// no client / project number / actual hours / variations / H&S / access /
+// weather, per the brief).
+const ProductivityDetail = ({ g }) => {
+  if (!g) return null;
+  return (
+    <div className="text-sm bg-white p-2">
+      <SectionTitle>Productivity — {fmtDate(g?.date)}</SectionTitle>
+      <Row label="Date" value={fmtDate(g?.date)} />
+      <Row label="Total Teams" value={g?.totalTeams} />
+      <Row label="Total Hours" value={`${(g?.totalHours || 0).toFixed(2)}h`} />
+
+      <SectionTitle>Costs</SectionTitle>
+      {/* Travel = staff mileage rate x total miles + total travel time x hourly rate */}
+      <Row label="Travel" value={amt(g?.travel)} />
+      {/* Subsistence = staff additional stop-out cost */}
+      <Row label="Subsistence" value={amt(g?.subsistence)} />
+      {/* Other = expenses inputted on the app */}
+      <Row label="Other" value={amt(g?.other)} />
+
+      <SectionTitle>Delay</SectionTitle>
+      <Row label="Delay" value={g?.hasDelay ? "Yes" : "No"} />
+      <Row label="Delay Time" value={g?.delayHours ? fmtHours(g.delayHours) : "N/A"} />
+      <Row label="Delay Reasons" value={g?.delayReasons} block />
+
+      <SectionTitle>Notes</SectionTitle>
+      <Row label="Additional Notes" value={g?.additionalNotes} block />
+      <Row label="Work Completed" value={g?.workCompleted} block />
+    </div>
+  );
+};
+
+// Cost PDF — every parameter totalled into ONE document (not a page per report).
+// Shows a line per report plus a bold TOTAL row.
+const CostSummary = ({ data, totals, dateRange }) => {
+  const th = { border: "1px solid #999", padding: "4px 6px", background: "#f0f0f0", textAlign: "left" };
+  const td = { border: "1px solid #ccc", padding: "4px 6px", textAlign: "right" };
+  const tdL = { ...td, textAlign: "left" };
+  return (
+    <div className="bg-white p-4" style={{ width: 1040, fontSize: 11 }}>
+      <div className="font-bold text-lg mb-1">Cost Report</div>
+      <div className="text-gray-600 mb-3">
+        {dateRange?.[0] && dateRange?.[1]
+          ? `${fmtDate(dateRange[0])} – ${fmtDate(dateRange[1])}`
+          : "All dates"}{" "}
+        · {data.length} report(s)
+      </div>
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr>
+            <th style={th}>#</th>
+            <th style={th}>Date</th>
+            <th style={th}>User ID</th>
+            <th style={th}>Job No.</th>
+            <th style={{ ...th, textAlign: "right" }}>Travel</th>
+            <th style={{ ...th, textAlign: "right" }}>Accom.</th>
+            <th style={{ ...th, textAlign: "right" }}>Subs.</th>
+            <th style={{ ...th, textAlign: "right" }}>Other</th>
+            <th style={{ ...th, textAlign: "right" }}>Expenses</th>
+            <th style={{ ...th, textAlign: "right" }}>Delay Time</th>
+            <th style={{ ...th, textAlign: "right" }}>Delay Cost</th>
+            <th style={{ ...th, textAlign: "right" }}>Delay Charge</th>
+            <th style={{ ...th, textAlign: "right" }}>Labour</th>
+            <th style={{ ...th, textAlign: "right" }}>Invoice</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((r, i) => (
+            <tr key={r._id || i}>
+              <td style={td}>{i + 1}</td>
+              <td style={tdL}>{fmtDate(r?.date)}</td>
+              <td style={tdL}>{r?.staffRef?.staffId || "N/A"}</td>
+              <td style={tdL}>{r?.job?.jobNumber || r?.jobNumber || "N/A"}</td>
+              <td style={td}>{amt(r?.expenseBreakdown?.travel)}</td>
+              <td style={td}>{amt(r?.expenseBreakdown?.accommodation)}</td>
+              <td style={td}>{amt(r?.expenseBreakdown?.subsistence)}</td>
+              <td style={td}>{amt(r?.expenseBreakdown?.other)}</td>
+              <td style={td}>{amt(r?.expenseTotal)}</td>
+              <td style={td}>{travelHours(r?.delayTime) ? fmtHours(travelHours(r?.delayTime)) : "—"}</td>
+              <td style={td}>{amt(r?.delayCost)}</td>
+              <td style={td}>{amt(r?.delayChargeable)}</td>
+              <td style={td}>{amt(r?.labourCost)}</td>
+              <td style={td}>{amt(r?.invoiceCost)}</td>
+            </tr>
+          ))}
+          <tr style={{ fontWeight: "bold", background: "#fafafa" }}>
+            <td style={tdL} colSpan={4}>TOTAL ({data.length})</td>
+            <td style={td}>{amt(totals.travel)}</td>
+            <td style={td}>{amt(totals.accommodation)}</td>
+            <td style={td}>{amt(totals.subsistence)}</td>
+            <td style={td}>{amt(totals.other)}</td>
+            <td style={td}>{amt(totals.expenseTotal)}</td>
+            <td style={td}>{fmtHours(totals.delayHours)}</td>
+            <td style={td}>{amt(totals.delayCost)}</td>
+            <td style={td}>{amt(totals.delayChargeable)}</td>
+            <td style={td}>{amt(totals.labourCost)}</td>
+            <td style={td}>{amt(totals.invoiceCost)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+// Sum every cost parameter across a list of reports.
+const sumCost = (list) =>
+  (list || []).reduce(
+    (a, r) => ({
+      travel: a.travel + toNumber(r?.expenseBreakdown?.travel),
+      accommodation: a.accommodation + toNumber(r?.expenseBreakdown?.accommodation),
+      subsistence: a.subsistence + toNumber(r?.expenseBreakdown?.subsistence),
+      other: a.other + toNumber(r?.expenseBreakdown?.other),
+      expenseTotal: a.expenseTotal + (Number(r?.expenseTotal) || 0),
+      delayHours: a.delayHours + travelHours(r?.delayTime),
+      delayCost: a.delayCost + (Number(r?.delayCost) || 0),
+      delayChargeable: a.delayChargeable + (Number(r?.delayChargeable) || 0),
+      labourCost: a.labourCost + (Number(r?.labourCost) || 0),
+      invoiceCost: a.invoiceCost + (Number(r?.invoiceCost) || 0),
+    }),
+    {
+      travel: 0,
+      accommodation: 0,
+      subsistence: 0,
+      other: 0,
+      expenseTotal: 0,
+      delayHours: 0,
+      delayCost: 0,
+      delayChargeable: 0,
+      labourCost: 0,
+      invoiceCost: 0,
+    }
+  );
+
 const Reports = () => {
   const printRef = useRef();
   const exportRef = useRef();
-  const [reportType, setReportType] = useState("daily");
+  const costExportRef = useRef();
+  const [reportType, setReportType] = useState("reports");
   const [ownerId, setOwnerId] = useState();
   const [clientId, setClientId] = useState();
   const [jobId, setJobId] = useState();
@@ -203,30 +359,25 @@ const Reports = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [singleDownloading, setSingleDownloading] = useState(false);
+  // Cost page: reports the admin ticks to total up (keys = report _id).
+  const [costSelectedKeys, setCostSelectedKeys] = useState([]);
   const pageSize = 10;
 
-  // Build query params from the active filters + the report's default period.
+  // Build query params from the active filters. There is no longer a
+  // daily/weekly/monthly default period — the single report list shows
+  // everything and the date range narrows it to any period.
   const params = useMemo(() => {
     const p = {};
     if (ownerId) p.ownerId = ownerId;
     if (clientId) p.clientId = clientId;
     if (jobId) p.jobId = jobId;
     if (search) p.search = search;
-
     if (dateRange?.[0] && dateRange?.[1]) {
       p.dateFrom = dateRange[0].format("YYYY-MM-DD");
       p.dateTo = dateRange[1].format("YYYY-MM-DD");
-    } else if (reportType === "daily") {
-      p.date = dayjs().format("YYYY-MM-DD");
-    } else if (reportType === "weekly") {
-      p.week = true;
-    } else {
-      // Monthly + analytic reports default to the last 30 days unless a range
-      // is chosen.
-      p.month = true;
     }
     return p;
-  }, [reportType, ownerId, clientId, jobId, search, dateRange]);
+  }, [ownerId, clientId, jobId, search, dateRange]);
 
   const { data: reportRes, isFetching } = useGetReportsQuery(params);
   const rows = reportRes?.data || [];
@@ -242,14 +393,9 @@ const Reports = () => {
     [companyRes]
   );
 
-  // Fetch purely to populate the Client / Project dropdowns. Scoped to the
-  // selected company so those options only list that company's clients/jobs.
+  // Fetch purely to populate the Client / Project dropdowns.
   const { data: allRes } = useGetReportsQuery(ownerId ? { ownerId } : {});
 
-  // Company → Client cascade: once a company is picked, list that company's
-  // clients from the dedicated endpoint (complete list, not just clients that
-  // happen to have reports). With no company selected, fall back to clients
-  // derived from all reports so the filter still works globally.
   const { data: companyClientsRes } = useGetClientsByCompanyQuery(ownerId, {
     skip: !ownerId,
   });
@@ -318,36 +464,82 @@ const Reports = () => {
     colView,
   ];
 
+  // --- Productivity: ONE report per day per job, all staff added together ---
+  const productivitySummary = useMemo(() => {
+    const map = new Map();
+    rows.forEach((r) => {
+      const day = r?.date ? dayjs(r.date).format("YYYY-MM-DD") : "N/A";
+      const jobKey = r?.job?._id || r?.job?.jobNumber || r?.jobNumber || "no-job";
+      const key = `${day}|${jobKey}`;
+      const cur =
+        map.get(key) ||
+        {
+          key,
+          date: r?.date,
+          staffSet: new Set(),
+          totalHours: 0,
+          travel: 0,
+          subsistence: 0,
+          other: 0,
+          delayHours: 0,
+          hasDelay: false,
+          delayReasons: [],
+          additionalNotes: [],
+          workCompleted: [],
+        };
+      const sid = r?.staffRef?.staffId;
+      if (sid) cur.staffSet.add(sid);
+      (Array.isArray(r?.additionalUserId) ? r.additionalUserId : []).forEach((id) =>
+        cur.staffSet.add(id)
+      );
+      cur.totalHours += Number(r?.workedHours) || 0;
+      cur.travel += travelCostForReport(r);
+      cur.subsistence += Number(r?.staffRef?.additionalStopOutCost) || 0;
+      cur.other += toNumber(r?.expenseBreakdown?.other);
+      cur.delayHours += travelHours(r?.delayTime);
+      if (reportHasDelay(r)) cur.hasDelay = true;
+      if (String(r?.delayReasons || "").trim()) cur.delayReasons.push(r.delayReasons.trim());
+      if (String(r?.addAdditionalNotes || "").trim())
+        cur.additionalNotes.push(r.addAdditionalNotes.trim());
+      if (String(r?.workDescription || "").trim())
+        cur.workCompleted.push(
+          `${sid ? `[${sid}] ` : ""}${r.workDescription.trim()}`
+        );
+      map.set(key, cur);
+    });
+    return [...map.values()].map((g) => ({
+      ...g,
+      totalTeams: g.staffSet.size,
+      delayReasons: g.delayReasons.join("\n"),
+      additionalNotes: g.additionalNotes.join("\n"),
+      workCompleted: g.workCompleted.join("\n\n"),
+    }));
+  }, [rows]);
+
   const productivityColumns = [
-    colIndex, colDate, colUserId, colProject,
-    { title: "Approved Hours", key: "approved", render: (_, r) => r?.approvedHours || "N/A" },
-    { title: "Actual Hours", key: "actual", render: (_, r) => (r?.workedHours != null ? `${r.workedHours}h` : "N/A") },
+    colIndex,
+    colDate,
+    { title: "Total Teams", key: "teams", render: (_, g) => g?.totalTeams ?? 0 },
+    { title: "Total Hours", key: "hours", render: (_, g) => `${(g?.totalHours || 0).toFixed(2)}h` },
+    { title: "Travel", key: "travel", render: (_, g) => amt(g?.travel) },
+    { title: "Subsistence", key: "subs", render: (_, g) => amt(g?.subsistence) },
+    { title: "Other", key: "other", render: (_, g) => amt(g?.other) },
+    { title: "Delay", key: "delay", render: (_, g) => (g?.hasDelay ? "Yes" : "No") },
+    { title: "Delay Time", key: "delayTime", render: (_, g) => (g?.delayHours ? fmtHours(g.delayHours) : "—") },
     {
-      title: "Variance",
-      key: "variance",
-      render: (_, r) => {
-        const approved = toNumber(r?.approvedHours);
-        const actual = Number(r?.workedHours) || 0;
-        if (!approved) return "N/A";
-        return `${(actual - approved).toFixed(2)}h`;
-      },
-    },
-    { title: "Travel Time", key: "travelTime", render: (_, r) => (travelHours(r?.travelTime) ? fmtHours(travelHours(r?.travelTime)) : "—") },
-    {
-      // Additional job number the staff entered in the app (appended to notes).
-      title: "Variations",
-      key: "variations",
-      render: (_, r) => extractJobRef(r?.addAdditionalNotes) || r?.variations || "—",
-    },
-    {
-      title: "Work Completed",
-      key: "workCompleted",
-      render: (_, r) => (
-        <div className="max-w-xs whitespace-pre-wrap break-words">{r?.workDescription || "—"}</div>
+      title: "Delay Reasons",
+      key: "delayReasons",
+      render: (_, g) => (
+        <div className="max-w-xs whitespace-pre-wrap break-words">{g?.delayReasons || "—"}</div>
       ),
     },
-    { title: "Delays", key: "delays", render: (_, r) => r?.issueOrDelays || "—" },
-    { title: "Delay Reasons", key: "delayReasons", render: (_, r) => r?.delayReasons || "—" },
+    {
+      title: "Additional Notes",
+      key: "notes",
+      render: (_, g) => (
+        <div className="max-w-xs whitespace-pre-wrap break-words">{g?.additionalNotes || "—"}</div>
+      ),
+    },
     colView,
   ];
 
@@ -359,7 +551,7 @@ const Reports = () => {
     { title: "Other", key: "other", render: (_, r) => amt(r?.expenseBreakdown?.other) },
     { title: "Expenses Total", key: "total", render: (_, r) => amt(r?.expenseTotal) },
     { title: "Delay Time", key: "delayTime", render: (_, r) => (travelHours(r?.delayTime) ? fmtHours(travelHours(r?.delayTime)) : "—") },
-    { title: "Delay Cost", key: "delayCost", render: (_, r) => amt(r?.delayCost) },
+    { title: "Delay Labour Cost", key: "delayCost", render: (_, r) => amt(r?.delayCost) },
     { title: "Delay Chargeable", key: "delayChargeable", render: (_, r) => amt(r?.delayChargeable) },
     { title: "Labour Cost", key: "labour", render: (_, r) => <strong>{amt(r?.labourCost)}</strong> },
     { title: "Invoice Cost", key: "invoice", render: (_, r) => <strong>{amt(r?.invoiceCost)}</strong> },
@@ -433,14 +625,30 @@ const Reports = () => {
       case "labour":
         return { columns: labourColumns, dataSource: labourSummary };
       case "productivity":
-        return { columns: productivityColumns, dataSource: rows };
+        return { columns: productivityColumns, dataSource: productivitySummary };
       case "cost":
         return { columns: costColumns, dataSource: rows };
       default:
         return { columns: listColumns, dataSource: rows };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, rows, clientSummary, labourSummary]);
+  }, [reportType, rows, clientSummary, labourSummary, productivitySummary]);
+
+  // Cost totals — sum ONLY the reports ticked on the cost table.
+  const costTotals = useMemo(
+    () => sumCost(rows.filter((r) => costSelectedKeys.includes(r._id))),
+    [rows, costSelectedKeys]
+  );
+
+  // Reports feeding the single cost PDF: the ticked ones, or all if none ticked.
+  const costPdfRows = useMemo(() => {
+    const ticked = rows.filter((r) => costSelectedKeys.includes(r._id));
+    return ticked.length ? ticked : rows;
+  }, [rows, costSelectedKeys]);
+  const costPdfTotals = useMemo(() => sumCost(costPdfRows), [costPdfRows]);
+
+  // Views that export one detailed page per report (All Reports + Productivity).
+  const isPerReportPdf = !GROUPED.includes(reportType) && reportType !== "cost";
 
   // Rows on the page currently shown — these are what the detailed PDF exports.
   const pageRows = useMemo(
@@ -448,36 +656,68 @@ const Reports = () => {
     [dataSource, currentPage]
   );
 
-  // Detailed PDF: one report's full "view" info per page, for the current page.
-  // Grouped reports (client/labour) have no per-report detail, so they export
-  // the visible table instead.
+  // Add a (possibly tall) node onto the PDF, slicing it across pages so nothing
+  // is squashed.
+  const addNodePaged = async (pdf, node, margin = 10) => {
+    const canvas = await html2canvas(node, { scale: 2, useCORS: true });
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const usableWidth = pdfWidth - margin * 2;
+    const usableHeight = pdfHeight - margin * 2;
+    const pxPerMm = canvas.width / usableWidth;
+    const pageHeightPx = usableHeight * pxPerMm;
+    let rendered = 0;
+    let first = true;
+    while (rendered < canvas.height) {
+      const slicePx = Math.min(pageHeightPx, canvas.height - rendered);
+      const pageCanvas = document.createElement("canvas");
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = slicePx;
+      const ctx = pageCanvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(canvas, 0, rendered, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
+      const imgData = pageCanvas.toDataURL("image/png");
+      if (!first) pdf.addPage();
+      pdf.addImage(imgData, "PNG", margin, margin, usableWidth, slicePx / pxPerMm);
+      rendered += slicePx;
+      first = false;
+    }
+  };
+
   const handleDownloadPdf = async () => {
     if (downloading) return;
     setDownloading(true);
     const hide = message.loading("Generating PDF, please wait…", 0);
     try {
       const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
       const margin = 10;
-      const usableWidth = pdfWidth - margin * 2;
 
+      // Grouped tables (client / labour) → screenshot the on-screen table.
       if (GROUPED.includes(reportType)) {
         if (!printRef.current) return;
-        const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
-        const imgData = canvas.toDataURL("image/png");
-        const imgProps = pdf.getImageProperties(imgData);
-        const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
-        pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+        await addNodePaged(pdf, printRef.current, margin);
         pdf.save(`${reportType}-report.pdf`);
         return;
       }
 
+      // Cost → one PDF with every parameter totalled up (not a page per report).
+      if (reportType === "cost") {
+        if (!costExportRef.current) return;
+        await addNodePaged(pdf, costExportRef.current, margin);
+        pdf.save("cost-report.pdf");
+        return;
+      }
+
+      // All Reports + Productivity → one detailed page per report on this page.
       const nodes = exportRef.current?.querySelectorAll(".pdf-report");
       if (!nodes || !nodes.length) {
         message.info("No reports to download on this page.");
         return;
       }
+      const pdfWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
+      const usableWidth = pdfWidth - margin * 2;
       for (let i = 0; i < nodes.length; i++) {
         const canvas = await html2canvas(nodes[i], { scale: 2, useCORS: true });
         const imgData = canvas.toDataURL("image/png");
@@ -513,8 +753,18 @@ const Reports = () => {
     setSearch("");
   };
 
-  // Reset to page 1 whenever the data set changes.
-  useEffect(() => setCurrentPage(1), [reportType, ownerId, clientId, jobId, dateRange, search]);
+  // Reset to page 1 (and clear cost ticks) whenever the data set changes.
+  useEffect(() => {
+    setCurrentPage(1);
+    setCostSelectedKeys([]);
+  }, [reportType, ownerId, clientId, jobId, dateRange, search]);
+
+  const costLabelBox = (label, value) => (
+    <div key={label} className="px-3 py-2 rounded-md bg-gray-100 border">
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className="font-semibold">{value}</div>
+    </div>
+  );
 
   return (
     <div>
@@ -533,13 +783,11 @@ const Reports = () => {
         ))}
       </div>
 
-      {/* Filters: Client / Project / Date (per the brief) */}
+      {/* Filters: Company / Client / Project / Date range / Search */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <Select allowClear showSearch optionFilterProp="label" placeholder="Filter by Company"
           style={{ minWidth: 200 }} value={ownerId}
           onChange={(v) => {
-            // Client/Project belong to the previously selected company, so
-            // clear them when switching companies to avoid a stale filter.
             setOwnerId(v);
             setClientId(undefined);
             setJobId(undefined);
@@ -554,6 +802,27 @@ const Reports = () => {
           value={search} onChange={(e) => setSearch(e.target.value)} />
         <button onClick={resetFilters} className="px-3 py-1 border rounded text-sm">Reset</button>
       </div>
+
+      {/* Cost page: totals for every parameter across the ticked reports. */}
+      {reportType === "cost" && (
+        <div className="mb-4">
+          <div className="text-sm text-gray-500 mb-2">
+            Tick reports to total their costs. {costSelectedKeys.length} report(s) selected.
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {costLabelBox("Travel", amt(costTotals.travel))}
+            {costLabelBox("Accommodation", amt(costTotals.accommodation))}
+            {costLabelBox("Subsistence", amt(costTotals.subsistence))}
+            {costLabelBox("Other", amt(costTotals.other))}
+            {costLabelBox("Expenses Total", amt(costTotals.expenseTotal))}
+            {costLabelBox("Delay Time", fmtHours(costTotals.delayHours))}
+            {costLabelBox("Delay Labour Cost", amt(costTotals.delayCost))}
+            {costLabelBox("Delay Chargeable", amt(costTotals.delayChargeable))}
+            {costLabelBox("Labour Cost", amt(costTotals.labourCost))}
+            {costLabelBox("Invoice Cost", amt(costTotals.invoiceCost))}
+          </div>
+        </div>
+      )}
 
       <div ref={printRef} className="overflow-x-auto">
         <ConfigProvider
@@ -575,7 +844,7 @@ const Reports = () => {
             <button
               onClick={handleDownloadPdf}
               disabled={downloading}
-              title="Download detailed PDF (current page)"
+              title={reportType === "cost" ? "Download totalled cost PDF" : "Download detailed PDF (current page)"}
               className={`flex items-center gap-2 text-sm ${
                 downloading ? "opacity-60 cursor-not-allowed" : ""
               }`}
@@ -595,23 +864,57 @@ const Reports = () => {
             dataSource={dataSource}
             loading={isFetching}
             pagination={{ pageSize, current: currentPage, onChange: setCurrentPage }}
-            rowKey={(r) => r._id || r.userId || r.client}
+            rowKey={(r) => r._id || r.key || r.userId || r.client}
+            rowSelection={
+              reportType === "cost"
+                ? { selectedRowKeys: costSelectedKeys, onChange: setCostSelectedKeys }
+                : undefined
+            }
+            expandable={
+              reportType === "productivity"
+                ? {
+                    // "Work completed" opens up on the page instead of cluttering
+                    // the row.
+                    expandedRowRender: (g) => (
+                      <div className="p-2 bg-gray-50 rounded">
+                        <div className="font-semibold mb-1">Work Completed</div>
+                        <div className="whitespace-pre-wrap break-words">
+                          {g?.workCompleted || "—"}
+                        </div>
+                      </div>
+                    ),
+                    rowExpandable: () => true,
+                  }
+                : undefined
+            }
           />
         </ConfigProvider>
       </div>
 
-      {/* Off-screen detailed render of the current page — source for the PDF. */}
-      {!GROUPED.includes(reportType) && (
+      {/* Off-screen detailed render of the current page — source for the
+          per-report PDF (All Reports + Productivity). */}
+      {isPerReportPdf && (
         <div style={{ position: "absolute", left: -99999, top: 0, width: 760 }} ref={exportRef}>
           {pageRows.map((r) => (
-            <div key={r._id} className="pdf-report" style={{ width: 760 }}>
-              <ReportDetail r={r} />
+            <div key={r._id || r.key} className="pdf-report" style={{ width: 760 }}>
+              {reportType === "productivity" ? (
+                <ProductivityDetail g={r} />
+              ) : (
+                <ReportDetail r={r} />
+              )}
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={isModalOpen} onCancel={handleCancel} footer={null} title="Daily Report Detail" width={720}>
+      {/* Off-screen cost summary — source for the single totalled cost PDF. */}
+      {reportType === "cost" && (
+        <div style={{ position: "absolute", left: -99999, top: 0 }} ref={costExportRef}>
+          <CostSummary data={costPdfRows} totals={costPdfTotals} dateRange={dateRange} />
+        </div>
+      )}
+
+      <Modal open={isModalOpen} onCancel={handleCancel} footer={null} title="Report Detail" width={720}>
         {selected && (
           <div className="mt-2">
             <div className="flex justify-end mb-2">
@@ -637,7 +940,9 @@ const Reports = () => {
                     const imgProps = pdf.getImageProperties(imgData);
                     const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
                     pdf.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
-                    pdf.save(`report-${selected?.staffRef?.staffId || "detail"}.pdf`);
+                    pdf.save(
+                      `report-${selected?.staffRef?.staffId || (selected?.date ? dayjs(selected.date).format("YYYY-MM-DD") : "detail")}.pdf`
+                    );
                   } catch (error) {
                     console.error("PDF generation failed", error);
                     message.error("Could not generate the PDF. Please try again.");
@@ -658,7 +963,11 @@ const Reports = () => {
               </button>
             </div>
             <div id="single-report-detail">
-              <ReportDetail r={selected} />
+              {reportType === "productivity" ? (
+                <ProductivityDetail g={selected} />
+              ) : (
+                <ReportDetail r={selected} />
+              )}
             </div>
           </div>
         )}

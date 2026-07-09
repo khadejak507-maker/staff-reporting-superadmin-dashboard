@@ -4,7 +4,7 @@ import { GrNotes } from "react-icons/gr";
 import { Link, useLocation } from "react-router-dom";
 
 const menuItems = [
-  { icon: <GrNotes className="h-5 w-5" />, label: "Daily Report", link: "/" },
+  { icon: <GrNotes className="h-5 w-5" />, label: "Reports", link: "/" },
 ];
 
 const Sidebar = ({ onClose = () => {} }) => {
